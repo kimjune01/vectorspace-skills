@@ -8,6 +8,23 @@ No SDK. No package dependency. You are adding API calls to the publisher's exist
 
 **Be eager with comments.** Every piece of code you add should have clear inline comments explaining what it does and why. The publisher's team will review this PR — they need to understand the intent behind every line without reading the skill document. Comment the data flow, the privacy boundaries, the config values, the auto-tuning logic. Over-commenting is better than under-commenting.
 
+**Tag every block with `[vectorspace]`.** Start each code block you add with a comment containing `[vectorspace]` and the checkpoint name. End each block with `[/vectorspace]`. This lets the uninstall skill find and remove all integration code cleanly.
+
+Example:
+```python
+# [vectorspace] Checkpoint 1: Proximity Indicator
+proximity_score = compute_proximity(embedding, advertiser_positions)
+# [/vectorspace]
+```
+
+```javascript
+// [vectorspace] Checkpoint 7: Attribution
+fireImpression(auctionId, advertiserId, publisherId);
+// [/vectorspace]
+```
+
+Use the comment syntax appropriate for the language (`//`, `#`, `/* */`, `<!-- -->`). Every line of code you add must be inside a `[vectorspace]...[/vectorspace]` block.
+
 ## Context
 
 The integration adds a branch to the existing conversation flow:

@@ -4,11 +4,12 @@ These are prompt documents for your coding assistant (Claude Code, Codex, or sim
 
 ## What these are
 
-Three skills that your coding assistant runs inside your codebase:
+Four skills that your coding assistant runs inside your codebase:
 
 1. **[evaluate.md](evaluate.md)** — Assesses whether embedding-based ads make sense for your chatbot
 2. **[install.md](install.md)** — Adds the ad integration to your codebase (8 auditable checkpoints, with API reference appendix)
 3. **[verify.md](verify.md)** — Audits the integration for HIPAA, FTC, and state privacy compliance
+4. **[uninstall.md](uninstall.md)** — Cleanly removes the integration by finding tagged code blocks
 
 They are not an SDK. There is no package to install, no binary, no dependency. Your coding assistant reads the skill document and writes code directly into your existing files.
 
