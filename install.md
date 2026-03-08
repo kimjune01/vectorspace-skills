@@ -80,6 +80,15 @@ The publisher sets the target rate. The server handles the rest. (Why this matte
 
 ## Implementation
 
+Create a `.vectorspace/data/` directory for runtime artifacts (cached advertiser positions, stored tau value, embedding model cache). Add it to `.gitignore`:
+
+```
+# VectorSpace runtime artifacts
+.vectorspace/data/
+```
+
+This keeps generated data out of version control while the skill files in `.vectorspace/` remain committed.
+
 Implement these checkpoints. Use the publisher's existing patterns — their error handling, their logging, their HTTP client, their UI components. Don't introduce new patterns.
 
 ### Checkpoint 0: Config Guard

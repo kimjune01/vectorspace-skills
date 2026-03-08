@@ -54,8 +54,10 @@ If the Install skill added any of these, remove them:
 
 Delete any files created entirely by the integration:
 - Compliance audit reports (`ad-integration-audit.md`, `COMPLIANCE.md`, etc.)
+- `.vectorspace/data/` directory (cached advertiser positions, tau state, model cache)
 - All skill files: `evaluate.md`, `install.md`, `verify.md`, `uninstall.md`
 - The `.vectorspace/` directory itself (this skill is inside it — delete it last, after everything else is done)
+- The `.gitignore` entry for `.vectorspace/data/`
 
 ### 6. Verify
 
