@@ -69,7 +69,7 @@ Two values the publisher controls:
 - **`VECTORSPACE_ENABLED`** — feature flag, ships `false`
 - **`VECTORSPACE_TARGET_RATE`** — fraction of conversations that show the indicator, default `0.05` (~5%)
 
-The server auto-tunes an internal relevance threshold (tau) to converge on the target rate using a moving average. The publisher never sets tau directly. See the [Reference](#reference) appendix for the auto-tuning algorithm and all config defaults.
+The server auto-tunes an internal relevance threshold (tau) to converge on the target rate using a [PID controller](https://github.com/kimjune01/tau-controller). The publisher never sets tau directly. See the [Reference](#reference) appendix for the auto-tuning algorithm and all config defaults.
 
 The publisher sets the target rate. The server handles the rest. (Why this matters: https://www.june.kim/three-levers)
 
@@ -329,12 +329,21 @@ Adapt to match the chatbot's voice. If declined, don't show the proximity indica
 
 Server-side. Adjusts tau to converge on `VECTORSPACE_TARGET_RATE`.
 
-1. Track a moving average of the recommendation rate (conversations where proximity score exceeded tau / total conversations) over a rolling window (last 1000 conversations or last 24 hours, whichever is smaller)
-2. Periodically compare the moving average to `VECTORSPACE_TARGET_RATE`
-3. If rate > target, raise tau by 0.01. If rate < target, lower tau by 0.01
-4. Clamp tau to [0.5, 0.99]
-5. Initialize tau to `0.8` on first run
-6. Persist tau across restarts
+Reference implementation: https://github.com/kimjune01/tau-controller (MIT, simulation evidence, interactive notebook).
+
+The controller uses a PID feedback loop:
+- **Proportional**: if the recommendation rate exceeds the target, tighten tau. If below, loosen.
+- **Integral**: accumulated drift over time forces correction that the proportional term alone wouldn't catch.
+- **Derivative**: sudden changes (new advertiser category enters) are detected and corrected before error accumulates.
+
+Implementation requirements:
+1. Track recommendation rate per conversation (not per turn). One recommendation per conversation, max.
+2. Update tau every N completed conversations (default: 100).
+3. Clamp tau to [0.5, 0.99]. Clamp the integral to prevent windup.
+4. Initialize tau to `0.8` on first run.
+5. Persist tau across restarts.
+
+Port the PID logic from the reference implementation into the publisher's language and patterns. The reference is Python; adapt to whatever the codebase uses.
 
 ### Proximity Indicator Styles
 
