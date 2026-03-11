@@ -88,12 +88,6 @@ Server-side PID controller that adjusts tau to converge on `VECTORSPACE_TARGET_R
 
 Port the PID logic from the reference implementation into the publisher's language and patterns.
 
-## Proximity Indicator Styles
+## Proximity Indicator
 
-Ask the operator which fits their UI:
-
-| Style | Description | Best for |
-|---|---|---|
-| **Glowing dot** | A small dot beside the latest assistant message that brightens as relevance increases | Chat UIs with message bubbles |
-| **Avatar ring** | A ring around the chatbot's avatar that glows or pulses with relevance | UIs with a bot avatar/icon |
-| **Subtle shimmer** | A faint highlight or shimmer on the assistant message border | Minimal / text-heavy UIs |
+Full UX spec (state machine, consent flow, recommendation card): https://www.june.kim/publisher-ux

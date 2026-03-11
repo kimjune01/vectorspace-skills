@@ -103,7 +103,7 @@ The opt-in model is two-phase: **show relevance passively, then let the user act
 
 Use local embedding — this runs on every message, so network latency is unacceptable.
 
-The client maps the proximity score to a visual indicator. Ask the operator which style fits their UI (see [spec.md](spec.md#proximity-indicator-styles)). The indicator must be:
+The client maps the proximity score to a visual indicator. Ask the developer which style fits their UI (see [Publisher UX Spec](https://www.june.kim/publisher-ux)). The indicator must be:
 - **Passive** — no text, no label, no tooltip until tapped/clicked
 - **Gradual** — brightness/opacity maps to cosine similarity
 - **Invisible below tau** — if similarity < the server's current auto-tuned tau, don't show it
