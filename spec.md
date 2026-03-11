@@ -1,6 +1,8 @@
 # VectorSpace Publisher Spec
 
-API schemas, payload formats, system prompts, and config values. The skills tell you *how*. This document tells you *what*.
+The skills tell you *how*. This document tells you *what*.
+
+API contract: https://www.june.kim/publisher-api (OpenAPI spec, endpoint details, event types, catalog schema).
 
 ## Config Values
 
@@ -36,95 +38,6 @@ vector = model.encode(text).tolist()
 ```
 
 Use local for Phase 1 (proximity indicator — every message). HF API is acceptable for Phase 2 (intent extraction — only on user tap).
-
-## GET /advertiser-positions.json
-
-Public endpoint. Fetch periodically (e.g., hourly) and cache locally.
-
-```
-GET https://api.vectorspace.exchange/advertiser-positions.json
-```
-
-Response:
-
-```json
-[
-  {
-    "advertiser_id": "adv-7",
-    "embedding": [0.023, -0.041, ...],
-    "sigma": 0.3,
-    "category": "physical-therapy",
-    "updated_at": "2026-03-08T12:00:00Z"
-  }
-]
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `advertiser_id` | string | Unique advertiser identifier |
-| `embedding` | float[384] | Advertiser's position in `bge-small-en-v1.5` embedding space |
-| `sigma` | float (0–1) | How broadly the advertiser bids — tight (0.1) = niche, wide (0.5) = broad |
-| `category` | string | Human-readable label for the advertiser's vertical |
-| `updated_at` | ISO 8601 | When this position was last updated |
-
-## POST /ad-request
-
-Auction request. Sent only after user taps the proximity indicator and consents.
-
-```
-POST https://api.vectorspace.exchange/ad-request
-Content-Type: application/json
-
-{
-  "embedding": [384 floats],
-  "publisher_id": "PUBLISHER_ID",
-  "tau": 0.8
-}
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `embedding` | float[384] | Intent embedding from `bge-small-en-v1.5` |
-| `publisher_id` | string | From `VECTORSPACE_PUBLISHER_ID` config |
-| `tau` | float (0–1) | Server's current auto-tuned threshold |
-
-Response:
-
-```json
-{
-  "auction_id": 42,
-  "winner_id": "adv-7",
-  "payment": 3.47,
-  "currency": "USD",
-  "bid_count": 12
-}
-```
-
-If no match or error, the response may be empty or an error status. Handle gracefully.
-
-## POST /event/impression
-
-Fire when the ad suggestion is rendered and visible to the user.
-
-```
-POST https://api.vectorspace.exchange/event/impression
-Content-Type: application/json
-
-{"auction_id": 42, "advertiser_id": "adv-7", "publisher_id": "PUBLISHER_ID"}
-```
-
-## POST /event/click
-
-Fire when the user taps/clicks the ad suggestion.
-
-```
-POST https://api.vectorspace.exchange/event/click
-Content-Type: application/json
-
-{"auction_id": 42, "advertiser_id": "adv-7", "publisher_id": "PUBLISHER_ID"}
-```
-
-No user identity in attribution payloads. Just IDs for the auction, advertiser, and publisher.
 
 ## Intent Extraction System Prompt
 
