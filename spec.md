@@ -81,23 +81,12 @@ Adapt to match the chatbot's voice. If declined, don't show the proximity indica
 
 ## Auto-Tuning Algorithm
 
-Server-side. Adjusts tau to converge on `VECTORSPACE_TARGET_RATE`.
+Server-side PID controller that adjusts tau to converge on `VECTORSPACE_TARGET_RATE`.
 
-Reference implementation: https://github.com/kimjune01/tau-controller (MIT, simulation evidence, interactive notebook).
+- Design rationale: https://www.june.kim/set-it-and-forget-it
+- Reference implementation: https://github.com/kimjune01/tau-controller
 
-The controller uses a PID feedback loop:
-- **Proportional**: if the recommendation rate exceeds the target, tighten tau. If below, loosen.
-- **Integral**: accumulated drift over time forces correction that the proportional term alone wouldn't catch.
-- **Derivative**: sudden changes (new advertiser category enters) are detected and corrected before error accumulates.
-
-Implementation requirements:
-1. Track recommendation rate per conversation (not per turn). One recommendation per conversation, max.
-2. Update tau every N completed conversations (default: 100).
-3. Clamp tau to [0.5, 0.99]. Clamp the integral to prevent windup.
-4. Initialize tau to `0.8` on first run.
-5. Persist tau across restarts.
-
-Port the PID logic from the reference implementation into the publisher's language and patterns. The reference is Python; adapt to whatever the codebase uses.
+Port the PID logic from the reference implementation into the publisher's language and patterns.
 
 ## Proximity Indicator Styles
 
