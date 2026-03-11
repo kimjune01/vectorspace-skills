@@ -69,7 +69,7 @@ Two values the publisher controls:
 - **`VECTORSPACE_ENABLED`** — feature flag, ships `false`
 - **`VECTORSPACE_TARGET_RATE`** — fraction of conversations that show the indicator, default `0.05` (~5%)
 
-The server auto-tunes an internal relevance threshold (tau) to converge on the target rate using a [PID controller](https://github.com/kimjune01/tau-controller). The publisher never sets tau directly. See the [Reference](#reference) appendix for the auto-tuning algorithm and all config defaults.
+The server auto-tunes an internal relevance threshold (tau) to converge on the target rate using a [PID controller](https://github.com/kimjune01/tau-controller). The publisher never sets tau directly. See [spec.md](spec.md) for the auto-tuning algorithm and all config defaults.
 
 The publisher sets the target rate. The server handles the rest. (Why this matters: https://www.june.kim/three-levers)
 
@@ -93,22 +93,22 @@ Implement these checkpoints. Use the publisher's existing patterns — their err
 
 ### Checkpoint 0: Config Guard
 
-Before any ad logic runs, check the config. If `VECTORSPACE_ENABLED` is false (or absent), skip the entire ad branch. Initialize internal tau to 0.8 if no stored value exists. See [Reference](#config-values) for defaults.
+Before any ad logic runs, check the config. If `VECTORSPACE_ENABLED` is false (or absent), skip the entire ad branch. Initialize internal tau to 0.8 if no stored value exists. See [spec.md](spec.md) for defaults.
 
 ### Checkpoint 1: Proximity Indicator
 
 The opt-in model is two-phase: **show relevance passively, then let the user act on it.** (Design rationale: https://www.june.kim/ask-first)
 
-**Phase 1 — Ambient signal (server-side).** The server periodically fetches and caches advertiser positions from the exchange (see [Reference](#get-advertiser-positionsjson)). After each assistant response, embed the conversation's latest exchange using local `bge-small-en-v1.5` and compute cosine similarity against cached positions. Take the max similarity. Return the score alongside the normal chat response.
+**Phase 1 — Ambient signal (server-side).** The server periodically fetches and caches advertiser positions from the exchange (see [spec.md](spec.md#get-advertiser-positionsjson)). After each assistant response, embed the conversation's latest exchange using local `bge-small-en-v1.5` and compute cosine similarity against cached positions. Take the max similarity. Return the score alongside the normal chat response.
 
 Use local embedding — this runs on every message, so network latency is unacceptable.
 
-The client maps the proximity score to a visual indicator. Ask the operator which style fits their UI (see [Reference](#proximity-indicator-styles)). The indicator must be:
+The client maps the proximity score to a visual indicator. Ask the operator which style fits their UI (see [spec.md](spec.md#proximity-indicator-styles)). The indicator must be:
 - **Passive** — no text, no label, no tooltip until tapped/clicked
 - **Gradual** — brightness/opacity maps to cosine similarity
 - **Invisible below tau** — if similarity < the server's current auto-tuned tau, don't show it
 
-**Phase 2 — User-initiated opt-in.** First-ever tap shows a consent dialog (see [Reference](#consent-record) for default wording). The key principle is permission marketing — the user grants permission to be shown relevant suggestions, not opted into data collection.
+**Phase 2 — User-initiated opt-in.** First-ever tap shows a consent dialog (see [spec.md](spec.md#consent-record) for default wording). The key principle is permission marketing — the user grants permission to be shown relevant suggestions, not opted into data collection.
 
 Store the consent decision persistently with a timestamp. Declined users never see the indicator again. Consented users skip the dialog on future taps.
 
@@ -118,7 +118,7 @@ After consent, the tap triggers Checkpoints 2–7.
 
 Triggered only after the user taps the proximity indicator and consents.
 
-Call the publisher's existing LLM with the intent extraction system prompt (see [Reference](#intent-extraction-system-prompt)). If it returns "NONE", stop — no ad opportunity.
+Call the publisher's existing LLM with the intent extraction system prompt (see [spec.md](spec.md#intent-extraction-system-prompt)). If it returns "NONE", stop — no ad opportunity.
 
 ### Checkpoint 3: Embedding
 
@@ -126,7 +126,7 @@ Embed the intent string using `bge-small-en-v1.5`. Reuse the same embedding util
 
 ### Checkpoint 4: API Call
 
-POST to the auction endpoint with the intent embedding, publisher ID, and current auto-tuned tau (see [Reference](#post-ad-request)). Handle errors gracefully — if the auction fails or returns no match, the conversation continues normally. Never let the ad integration break the core chatbot experience.
+POST to the auction endpoint with the intent embedding, publisher ID, and current auto-tuned tau (see [spec.md](spec.md#post-ad-request)). Handle errors gracefully — if the auction fails or returns no match, the conversation continues normally. Never let the ad integration break the core chatbot experience.
 
 ### Checkpoint 5: Response
 
@@ -138,7 +138,7 @@ Show the ad as a natural, dismissible suggestion in the conversation. Match the 
 
 ### Checkpoint 7: Attribution
 
-Fire impression and click events from whichever layer handles user interactions (client preferred, server fallback). See [Reference](#post-eventimpression). No user identity in these payloads — just IDs for the auction, advertiser, and publisher.
+Fire impression and click events from whichever layer handles user interactions (client preferred, server fallback). See [spec.md](spec.md#post-eventimpression). No user identity in these payloads — just IDs for the auction, advertiser, and publisher.
 
 ## After writing code
 
@@ -159,200 +159,4 @@ Tell the operator to run the **Verify Compliance** skill to audit the integratio
 
 ---
 
-## Reference
-
-API schemas, payload formats, system prompts, and config values. The checkpoints above tell you *how to approach the integration*. This section tells you *what to build*.
-
-### Config Values
-
-| Config | Type | Default | Purpose |
-|---|---|---|---|
-| `VECTORSPACE_ENABLED` | boolean | `false` | Feature flag. When `false`, the entire ad branch is skipped. |
-| `VECTORSPACE_TARGET_RATE` | float (0–1) | `0.05` | Target fraction of conversations that show the proximity indicator. |
-| `VECTORSPACE_PUBLISHER_ID` | string | — | Publisher identifier, provided by VectorSpace. |
-
-Internal (managed by the server, not set by the publisher):
-
-| Value | Type | Initial | Description |
-|---|---|---|---|
-| `tau` | float (0–1) | `0.8` | Relevance threshold. Auto-tuned to converge on `VECTORSPACE_TARGET_RATE`. Clamped to [0.5, 0.99]. Persisted across restarts. |
-
-### Embedding Model
-
-Model: `BAAI/bge-small-en-v1.5` (384 dimensions). Must match the exchange's advertisers.
-
-**Hugging Face Inference API (free, good for intent extraction):**
-```
-POST https://api-inference.huggingface.co/pipeline/feature-extraction/BAAI/bge-small-en-v1.5
-Authorization: Bearer {HF_TOKEN}
-{"inputs": "physical therapist specializing in climbing injuries"}
-→ 384-dim float array
-```
-
-**Local Python (required for proximity scoring — runs on every message):**
-```python
-from sentence_transformers import SentenceTransformer
-model = SentenceTransformer("BAAI/bge-small-en-v1.5")
-vector = model.encode(text).tolist()
-```
-
-Use local for Phase 1 (proximity indicator — every message). HF API is acceptable for Phase 2 (intent extraction — only on user tap).
-
-### GET /advertiser-positions.json
-
-Public endpoint. Fetch periodically (e.g., hourly) and cache locally.
-
-```
-GET https://api.vectorspace.exchange/advertiser-positions.json
-```
-
-Response:
-
-```json
-[
-  {
-    "advertiser_id": "adv-7",
-    "embedding": [0.023, -0.041, ...],
-    "sigma": 0.3,
-    "category": "physical-therapy",
-    "updated_at": "2026-03-08T12:00:00Z"
-  }
-]
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `advertiser_id` | string | Unique advertiser identifier |
-| `embedding` | float[384] | Advertiser's position in `bge-small-en-v1.5` embedding space |
-| `sigma` | float (0–1) | How broadly the advertiser bids — tight (0.1) = niche, wide (0.5) = broad |
-| `category` | string | Human-readable label for the advertiser's vertical |
-| `updated_at` | ISO 8601 | When this position was last updated |
-
-### POST /ad-request
-
-Auction request. Sent only after user taps the proximity indicator and consents.
-
-```
-POST https://api.vectorspace.exchange/ad-request
-Content-Type: application/json
-
-{
-  "embedding": [384 floats],
-  "publisher_id": "PUBLISHER_ID",
-  "tau": 0.8
-}
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `embedding` | float[384] | Intent embedding from `bge-small-en-v1.5` |
-| `publisher_id` | string | From `VECTORSPACE_PUBLISHER_ID` config |
-| `tau` | float (0–1) | Server's current auto-tuned threshold |
-
-Response:
-
-```json
-{
-  "auction_id": 42,
-  "winner_id": "adv-7",
-  "payment": 3.47,
-  "currency": "USD",
-  "bid_count": 12
-}
-```
-
-If no match or error, the response may be empty or an error status. Handle gracefully.
-
-### POST /event/impression
-
-Fire when the ad suggestion is rendered and visible to the user.
-
-```
-POST https://api.vectorspace.exchange/event/impression
-Content-Type: application/json
-
-{"auction_id": 42, "advertiser_id": "adv-7", "publisher_id": "PUBLISHER_ID"}
-```
-
-### POST /event/click
-
-Fire when the user taps/clicks the ad suggestion.
-
-```
-POST https://api.vectorspace.exchange/event/click
-Content-Type: application/json
-
-{"auction_id": 42, "advertiser_id": "adv-7", "publisher_id": "PUBLISHER_ID"}
-```
-
-No user identity in attribution payloads. Just IDs for the auction, advertiser, and publisher.
-
-### Intent Extraction System Prompt
-
-Used in Checkpoint 2. Call the publisher's existing LLM with this as the system prompt:
-
-```
-Given a conversation, decide whether the person could benefit from a professional service. If yes, write a single sentence describing that service — as if the provider were writing their own position statement. If the conversation is casual, off-topic, or doesn't suggest any professional need, respond with exactly "NONE".
-
-Format: [value prop] + [ideal client profile] + [qualifier]
-Example: "Sports injury knee rehab for competitive endurance athletes recovering from overuse."
-
-Rules:
-- Match the most obvious need. A health complaint needs a health provider, not a lawyer. A legal issue needs legal help, not a therapist.
-- Be specific to the situation but don't embellish beyond what's stated.
-- Do NOT extract demographics or personal data about the user.
-- If there is no clear professional need, respond with "NONE".
-
-Respond with ONLY the one-sentence service description or "NONE", nothing else.
-```
-
-If the LLM returns "NONE", stop. No ad opportunity.
-
-### Consent Record
-
-Persisted per user (lifetime of the app, not per session).
-
-```json
-{
-  "consent_given": true,
-  "consent_timestamp": "2026-03-08T14:30:00Z"
-}
-```
-
-Default consent dialog wording:
-
-> "Would you like to see a recommendation from our sponsor?"
->
-> **[Yes, show me]**  **[No thanks]**
-
-Adapt to match the chatbot's voice. If declined, don't show the proximity indicator on future sessions.
-
-### Auto-Tuning Algorithm
-
-Server-side. Adjusts tau to converge on `VECTORSPACE_TARGET_RATE`.
-
-Reference implementation: https://github.com/kimjune01/tau-controller (MIT, simulation evidence, interactive notebook).
-
-The controller uses a PID feedback loop:
-- **Proportional**: if the recommendation rate exceeds the target, tighten tau. If below, loosen.
-- **Integral**: accumulated drift over time forces correction that the proportional term alone wouldn't catch.
-- **Derivative**: sudden changes (new advertiser category enters) are detected and corrected before error accumulates.
-
-Implementation requirements:
-1. Track recommendation rate per conversation (not per turn). One recommendation per conversation, max.
-2. Update tau every N completed conversations (default: 100).
-3. Clamp tau to [0.5, 0.99]. Clamp the integral to prevent windup.
-4. Initialize tau to `0.8` on first run.
-5. Persist tau across restarts.
-
-Port the PID logic from the reference implementation into the publisher's language and patterns. The reference is Python; adapt to whatever the codebase uses.
-
-### Proximity Indicator Styles
-
-Ask the operator which fits their UI:
-
-| Style | Description | Best for |
-|---|---|---|
-| **Glowing dot** | A small dot beside the latest assistant message that brightens as relevance increases | Chat UIs with message bubbles |
-| **Avatar ring** | A ring around the chatbot's avatar that glows or pulses with relevance | UIs with a bot avatar/icon |
-| **Subtle shimmer** | A faint highlight or shimmer on the assistant message border | Minimal / text-heavy UIs |
+**Reference:** All API schemas, payload formats, system prompts, config values, and the auto-tuning algorithm are in [spec.md](spec.md). Read it before starting.
